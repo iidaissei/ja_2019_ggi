@@ -11,14 +11,13 @@
 import sys
 #ROS関係
 import rospy
-import roslib
 import smach
 import smach_ros
 from std_msgs.msg import String
 
-sys.path.append(roslib.packages.get_pkg_dir('mimi_common_pkg') + 'scripts')
+sys.path.insert(0, '/home/athome/catkin_ws/src/mimi_common_pkg/scripts')
+from common_action_client import enterTheRoomAC
 from common_function import *
-from common_action_client import detectDoorOpenAC
 
 
 ######################################################################
@@ -26,21 +25,15 @@ from common_action_client import detectDoorOpenAC
 ######################################################################
 
 
-class doorOpenStart(smach.State):
+class Admission(smach.State):
     def __init__(self):
         smach.State.__init__(
                 self,
                 outcomes = ['entered_room'])
 
     def execute(self, userdata):
-        rospy.loginfo('Executing state: DOOR_OPEN_START')
-        result = detectDoorOpenAC()
-        if result == 'success':
-            for i in range(15):
-                linearControl(0.3)
-                rospy.sleep(0.2)
-        else:
-            pass
+        rospy.loginfo('Executing state: ADMISSION')
+        result = enterTheRoomAC()
         return 'entered_room'
 
 
@@ -186,8 +179,8 @@ def main():
             outcomes = ['finish_ggi'])
     with sm_top:
         smach.StateMachine.add(
-                'DOOR_OPEN_START',
-                DoorOpenStart(),
+                'ADMISSION',
+                Admission(),
                 transitions = {'entered_room':'TRAINING_PHASE'})
 
         sm_training = smach.StateMachine(
