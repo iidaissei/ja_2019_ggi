@@ -19,7 +19,6 @@ sys.path.insert(0, '/home/athome/catkin_ws/src/mimi_common_pkg/scripts')
 from common_action_client import enterTheRoomAC
 from common_function import *
 
-
 class Admission(smach.State):
     def __init__(self):
         smach.State.__init__(
@@ -31,6 +30,9 @@ class Admission(smach.State):
         #result = enterTheRoomAC()
         return 'entered_room'
 
+#-----------------------------------------------
+# TrainingPhase
+#-----------------------------------------------
 
 class listenCommand(smach.State):
     def __init__(self):
@@ -50,9 +52,10 @@ class listenCommand(smach.State):
     def execute(self, userdata):
         rospy.loginfo('Executing state: LISTEN_COMMAND')
         result = self.listen_cmd_srv()
-        if result.result == 'True':
-            rospy.loginfo('Command is <' + str(result.cmd) + '>')
-            userdata.li_command_output = result.cmd
+        if result.result == True:
+            command = result.cmd
+            rospy.loginfo('Command is <' + str(command) + '>')
+            userdata.li_command_output = command
             if command == 'start_follow' or 'stop_follow':
                 return 'follow'
             elif command == 'turn_right' or 'turn_left' or 'go_back':
@@ -78,7 +81,7 @@ class follow(smach.State):
 
     def execute(self, userdata):
         rospy.loginfo('Executing state: FOLLOW')
-        if userdata.f_command_input == 'follow':
+        if userdata.f_command_input == 'start_follow':
             rospy.loginfo('Start follow')
             speak('I will follow you')
             #self.pub_follow_req.publish('start')
@@ -95,15 +98,22 @@ class move(smach.State):
                 self,
                 outcomes = ['finish_move'],
                 input_keys = ['m_command_input'])
+        self.bc = BaseCarrier()
 
     def execute(self, userdata):
         rospy.loginfo('Executing state: MOVE')
         if userdata.m_command_input == 'turn_right':
             rospy.loginfo('Turn right')
             speak('Rotate right')
+            bc.angleRotation(-45)
         elif userdata.m_command_input == 'turn_left':
             rospy.loginfo('Turn left')
             speak('Rotate left')
+            bc.angleRotation(45)
+        elif userdata.m_command_input == 'go_back':
+            rospy.loginfo('Go back')
+            speak('Back')
+            bc.translateDist(30)
         return 'finish_move'
 
 
@@ -124,6 +134,9 @@ class learn(smach.State):
         rospy.sleep(1.0)
         rospy.loginfo('Start learning')
 
+#-----------------------------------------------
+# TestPhase
+#-----------------------------------------------
 
 class listenOrder(smach.State):
     def __init__(self):
@@ -137,9 +150,8 @@ class listenOrder(smach.State):
     def execute(self, userdata):
         rospy.loginfo('Executing state: LISTEN_ORDER')
         # Order聞く処理を追加
-        order_data = []
-        order_data = ['shelf',
-                      'cupnoodle']
+        speak('Please give me a order')
+        order_data = 'desk'
         userdata.l_order_output = order_data
 
 
@@ -160,6 +172,9 @@ class executeOrder(smach.State):
         startNavigation(coord_list)
         rospy.loginfo('Start Grasp')
 
+#-----------------------------------------------
+# StateMachine
+#-----------------------------------------------
 
 def main():
     sm_top = smach.StateMachine(
