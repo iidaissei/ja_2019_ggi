@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #---------------------------------------------------------------------
-#Title: 2019 RoboCupJapanOpen GoGetItのマスター用ROSノード
-#Author: Issei Iida
-#Date: 2019/10/13
-#Memo: 
+# Title: 2019 RoboCupJapanOpen GoGetItのマスター用ROSノード
+# Author: Issei Iida
+# Date: 2019/10/13
+# Memo: 
 #---------------------------------------------------------------------
 
-#Python関係
+# Python
 import sys
-#ROS関係
+# ROS
 import rospy
 import smach
 import smach_ros
@@ -20,11 +20,6 @@ from common_action_client import enterTheRoomAC
 from common_function import *
 
 
-######################################################################
-# Door Open Start
-######################################################################
-
-
 class Admission(smach.State):
     def __init__(self):
         smach.State.__init__(
@@ -33,13 +28,8 @@ class Admission(smach.State):
 
     def execute(self, userdata):
         rospy.loginfo('Executing state: ADMISSION')
-        result = enterTheRoomAC()
+        #result = enterTheRoomAC()
         return 'entered_room'
-
-
-######################################################################
-# Training Phase
-######################################################################
 
 
 class listenCommand(smach.State):
@@ -49,27 +39,32 @@ class listenCommand(smach.State):
                 outcomes = ['follow',
                             'move',
                             'learn',
-                            'finish'],
+                            'finish',
+                            'listen_cmd_failed'],
                 input_keys=['learn_data_input'],
                 output_keys=['li_command_output'])
+        # Survice
+        self.listen_cmd_srv = rospy.ServiceProxy('/listen_command',
+                                                 ListenCommand)
 
     def execute(self, userdata):
         rospy.loginfo('Executing state: LISTEN_COMMAND')
-        #コマンドを認識する処理
-        rospy.loginfo('Command is <' + str(command) + '>')
-        userdata.li_command_output = command
-        if command is 'start_follow' or 'stop_follow':
-            return 'follow'
-        elif command is 'turn_right' or 'turn_left' or 'go_back':
-            return 'move'
-        elif command is 'learn_start':
-            return 'learn'
-        elif command is 'finish training':
-            rospy.loginfo('Create LearnData Param')
-            rospy.set_param('/ggi/lean_data', userdata.learn_data_input)
-            rosparam.dump_prarams('/hone/issei/catkin_ws/src/ja_2019_ggi/config/learn_data.yaml', '/ggi/learn_data')
-            rospy.loginfo('Created LearnData!')
-            return 'finish'
+        result = self.listen_cmd_srv()
+        if result.result == 'True':
+            rospy.loginfo('Command is <' + str(result.cmd) + '>')
+            userdata.li_command_output = result.cmd
+            if command == 'start_follow' or 'stop_follow':
+                return 'follow'
+            elif command == 'turn_right' or 'turn_left' or 'go_back':
+                return 'move'
+            elif command == 'learn_start':
+                return 'learn'
+            elif command == 'finish training':
+                rospy.loginfo('Finish TrainingPhase')
+                return 'finish'
+        else:
+            rospy.loginfo('Listening failed')
+            return 'listen_cmd_failed'
 
 
 class follow(smach.State):
@@ -78,7 +73,7 @@ class follow(smach.State):
                 self,
                 outcomes = ['finish_follow'],
                 input_keys = ['f_command_input'])
-        #Publisher
+        # Publisher
         self.pub_follow_req = rospy.Publisher('/chase/request', String, queue_size = 1)
 
     def execute(self, userdata):
@@ -119,18 +114,15 @@ class learn(smach.State):
                 outcomes = ['finish_learn'],
                 input_keys = ['le_command_input'],
                 output_keys = ['learn_data_output'])
+        # Survice
+        self.ggi_learning_srv = rospy.ServiceProxy('/ggi_learning',
+                                                   GgiLearning)
 
     def execute(self, userdata):
         rospy.loginfo('Executing state: LEARN')
+        self.ggi_learning_srv()
+        rospy.sleep(1.0)
         rospy.loginfo('Start learning')
-        #データ構造と追加方法は未定
-        #learn_data.append()
-        #userdata.learn_data_output = learn_data
-
-
-######################################################################
-# Test Phase
-######################################################################
 
 
 class listenOrder(smach.State):
@@ -144,7 +136,7 @@ class listenOrder(smach.State):
 
     def execute(self, userdata):
         rospy.loginfo('Executing state: LISTEN_ORDER')
-        #Order聞く処理を追加
+        # Order聞く処理を追加
         order_data = []
         order_data = ['shelf',
                       'cupnoodle']
@@ -164,14 +156,9 @@ class executeOrder(smach.State):
         location = userdata.e_order_input[0]
         target_object = userdata.e_order_input[1]
         rospy.loginfo('Start navigation')
-        searchLocationName(location)
-        startNavigation()
+        coord_list = searchLocationName('ggi_location', location)
+        startNavigation(coord_list)
         rospy.loginfo('Start Grasp')
-
-
-######################################################################
-# StateMachine
-######################################################################
 
 
 def main():
@@ -192,7 +179,8 @@ def main():
                     transitions = {'follow':'FOLLOW',
                                    'move':'MOVE',
                                    'learn':'LEARN',
-                                   'finish':'finish_training'},
+                                   'finish':'finish_training',
+                                   'listen_cmd_failed':'LISTEN_COMMAND'},
                     remapping = {'li_command_output':'command_name',
                                  'learn_data_input':'learn_data'})
 
@@ -246,9 +234,7 @@ def main():
 
     outcome = sm_top.execute()
 
+
 if __name__ == '__main__':
-    try:
-        rospy.init_node('sm_ggi', anonymous = True)
-        main()
-    except rospy.ROSInterrutException:
-        pass
+    rospy.init_node('sm_ggi', anonymous = True)
+    main()
