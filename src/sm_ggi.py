@@ -67,8 +67,12 @@ class ListenCmd(smach.State):
                 return 'move'
             elif command == 'go_back':
                 return 'move'
-            elif command == 'learn_start':
+            elif command == 'go_straight':
+                return 'move'
+            elif command == 'start_learning':
                 return 'learn'
+            elif command == 'look_here':
+                return 'move'
             elif command == 'finish_training':
                 rospy.loginfo('Finish TrainingPhase')
                 return 'finish'
@@ -117,10 +121,16 @@ class Move(smach.State):
             rospy.loginfo('Turn left')
             speak('Rotate left')
             self.bc.angleRotation(90)
+        elif userdata.m_command_input == 'go_straight':
+            rospy.loginfo('Go straight')
+            speak('Go forward')
+            self.bc.translateDist(0.15)
         elif userdata.m_command_input == 'go_back':
             rospy.loginfo('Go back')
-            speak('Back')
+            speak('Go back')
             self.bc.translateDist(-0.15)
+        else:
+            pass
         return 'finish_move'
 
 
@@ -139,7 +149,6 @@ class Learn(smach.State):
         rospy.loginfo('Executing state: LEARN')
         self.ggi_learning_srv()
         rospy.sleep(1.0)
-        speak('Finish learning')
         return 'finish_learn'
 
 #-----------------------------------------------
