@@ -14,7 +14,7 @@ import rospy
 import smach
 import smach_ros
 from std_msgs.msg import String
-from ggi_msgs.msg import ListenCommand, GgiLearning
+from ggi.srv import ListenCommand, GgiLearning
 
 sys.path.insert(0, '/home/athome/catkin_ws/src/mimi_common_pkg/scripts')
 from common_action_client import enterTheRoomAC
@@ -35,7 +35,7 @@ class Admission(smach.State):
 # TrainingPhase
 #-----------------------------------------------
 
-class listenCommand(smach.State):
+class ListenCmd(smach.State):
     def __init__(self):
         smach.State.__init__(
                 self,
@@ -46,24 +46,30 @@ class listenCommand(smach.State):
                             'listen_cmd_failed'],
                 input_keys=['learn_data_input'],
                 output_keys=['li_command_output'])
-        # Survice
-        self.listen_cmd_srv = rospy.ServiceProxy('/listen_command',
-                                                 ListenCommand)
+        # Service
+        self.listen_cmd_srv = rospy.ServiceProxy('/listen_command',ListenCommand)
 
     def execute(self, userdata):
-        rospy.loginfo('Executing state: LISTEN_COMMAND')
+        rospy.loginfo('Executing state: LISTEN_CMD')
         result = self.listen_cmd_srv()
+        print result
         if result.result == True:
             command = result.cmd
             rospy.loginfo('Command is <' + str(command) + '>')
             userdata.li_command_output = command
-            if command == 'start_follow' or 'stop_follow':
+            if command == 'start_follow':
                 return 'follow'
-            elif command == 'turn_right' or 'turn_left' or 'go_back':
+            elif command == 'stop_follow':
+                return 'follow'
+            elif command == 'turn_right':
+                return 'move'
+            elif command == 'turn_left':
+                return 'move'
+            elif command == 'go_back':
                 return 'move'
             elif command == 'learn_start':
                 return 'learn'
-            elif command == 'finish training':
+            elif command == 'finish_training':
                 rospy.loginfo('Finish TrainingPhase')
                 return 'finish'
         else:
@@ -71,7 +77,7 @@ class listenCommand(smach.State):
             return 'listen_cmd_failed'
 
 
-class follow(smach.State):
+class Follow(smach.State):
     def __init__(self):
         smach.State.__init__(
                 self,
@@ -85,15 +91,15 @@ class follow(smach.State):
         if userdata.f_command_input == 'start_follow':
             rospy.loginfo('Start follow')
             speak('I will follow you')
-            #self.pub_follow_req.publish('start')
+            self.pub_follow_req.publish('start')
         elif userdata.f_command_input == 'stop_follow':
             rospy.loginfo('Stop follow')
             speak('Stop following')
-            #self.pub_follow_req.publish('stop')
+            self.pub_follow_req.publish('stop')
         return 'finish_follow'
 
 
-class move(smach.State):
+class Move(smach.State):
     def __init__(self):
         smach.State.__init__(
                 self,
@@ -106,19 +112,19 @@ class move(smach.State):
         if userdata.m_command_input == 'turn_right':
             rospy.loginfo('Turn right')
             speak('Rotate right')
-            bc.angleRotation(-45)
+            self.bc.angleRotation(-90)
         elif userdata.m_command_input == 'turn_left':
             rospy.loginfo('Turn left')
             speak('Rotate left')
-            bc.angleRotation(45)
+            self.bc.angleRotation(90)
         elif userdata.m_command_input == 'go_back':
             rospy.loginfo('Go back')
             speak('Back')
-            bc.translateDist(30)
+            self.bc.translateDist(-0.15)
         return 'finish_move'
 
 
-class learn(smach.State):
+class Learn(smach.State):
     def __init__(self):
         smach.State.__init__(
                 self,
@@ -133,13 +139,14 @@ class learn(smach.State):
         rospy.loginfo('Executing state: LEARN')
         self.ggi_learning_srv()
         rospy.sleep(1.0)
-        rospy.loginfo('Start learning')
+        speak('Finish learning')
+        return 'finish_learn'
 
 #-----------------------------------------------
 # TestPhase
 #-----------------------------------------------
 
-class listenOrder(smach.State):
+class ListenOrder(smach.State):
     def __init__(self):
         smach.State.__init__(
                 self,
@@ -156,7 +163,7 @@ class listenOrder(smach.State):
         userdata.l_order_output = order_data
 
 
-class executeOrder(smach.State):
+class ExecuteOrder(smach.State):
     def __init__(self):
         smach.State.__init__(
                 self,
@@ -191,7 +198,7 @@ def main():
         with sm_training:
             smach.StateMachine.add(
                     'LISTEN_COMMAND',
-                    ListenCommand(),
+                    ListenCmd(),
                     transitions = {'follow':'FOLLOW',
                                    'move':'MOVE',
                                    'learn':'LEARN',
@@ -226,7 +233,7 @@ def main():
                 remapping = {'t_command_input':'command_name',
                              't_command_output':'command_name'})
 
-        sm_test = sm.StateMachine(
+        sm_test = smach.StateMachine(
                 outcomes = ['finish_test'])
         with sm_test:
             smach.StateMachine.add(
