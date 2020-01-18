@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="mimi_common_pkg" name="enter_the_room" type="enter_the_room.py"/>
+    <node pkg="mimi_common_pkg" name="setup_location" type="setup_location.py">
+      <rosparam file="$(find mimi_common_pkg)/config/location_dict.yaml" command="load" ns="location_dict" />
+    </node>
+    <node pkg='ja_2019_ggi" name="sm_ggi" type="sm_ggi.py">
+      <rosparam file="$(find ja_2019_ggi)/config/ggi_cmd.yaml" command="load" ns="ggi_cmd" />
+    </node>
+</launch>
