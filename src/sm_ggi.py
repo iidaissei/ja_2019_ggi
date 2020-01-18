@@ -14,6 +14,7 @@ import rospy
 import smach
 import smach_ros
 from std_msgs.msg import String
+from ggi_msgs.msg import ListenCommand, GgiLearning
 
 sys.path.insert(0, '/home/athome/catkin_ws/src/mimi_common_pkg/scripts')
 from common_action_client import enterTheRoomAC
