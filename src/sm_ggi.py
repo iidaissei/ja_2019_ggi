@@ -47,7 +47,7 @@ class ListenCmd(smach.State):
                 input_keys=['learn_data_input'],
                 output_keys=['li_command_output'])
         # Service
-        self.listen_cmd_srv = rospy.ServiceProxy('/listen_command',ListenCommand)
+        self.listen_cmd_srv = rospy.ServiceProxy('/listen_command', ListenCommand)
 
     def execute(self, userdata):
         rospy.loginfo('Executing state: LISTEN_CMD')
@@ -55,31 +55,19 @@ class ListenCmd(smach.State):
         print result
         if result.result == True:
             command = result.cmd
-            rospy.loginfo('Command is <' + str(command) + '>')
-            userdata.li_command_output = command
-            if command == 'start_follow':
-                return 'follow'
-            elif command == 'stop_follow':
-                return 'follow'
-            elif command == 'turn_right':
-                return 'move'
-            elif command == 'turn_left':
-                return 'move'
-            elif command == 'go_back':
-                return 'move'
-            elif command == 'go_straight':
-                return 'move'
-            elif command == 'start_learning':
-                return 'learn'
-            elif command == 'look_here':
-                return 'move'
+            userdata.cmd_output = command
+            rospy.loginfo('Command is *' + str(command) + '*')
+            if command in self.cmd_dict:
+                key = self.cmd_dict[command]
+                return key
             elif command == 'finish_training':
-                rospy.loginfo('Finish TrainingPhase')
-                return 'finish'
+                return 'finish_training'
+            else:
+                rospy.loginfo(str(command) + ' is not found')
+                return 'listen_cmd_failed'
         else:
             rospy.loginfo('Listening failed')
             return 'listen_cmd_failed'
-
 
 class Follow(smach.State):
     def __init__(self):

@@ -1,9 +1,8 @@
-{'move':'turn_right',
- 'move':'turn_left',
- 'move':'go_back',
- 'move':'go_straight',
- 'move''look_here',
- 'follow':'start_follow',
- 'follow':'stop_follow',
- 'learn':'start_learning'
- }
+{'turn_right':'move',
+ 'turn_left':'move',
+ 'go_straight':'move',
+ 'go_back':'move',
+ 'look_here':,'move',
+ 'start_learning':'learn',
+ 'start_follow':'follow',
+ 'stop_follow':'follow'}
