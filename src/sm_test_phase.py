@@ -19,80 +19,68 @@ sys.path.insert(0, '/home/issei/catkin_ws/src/mimi_common_pkg/scripts')
 # from common_function import *
 
 
-class ListenOrder(smach.State):
+class ListenCommand(smach.State):
     def __init__(self):
         smach.State.__init__(self,
                              outcomes = ['listen_success',
-                                         'listen_failed',
-                                         'all_finish'],
-                             output_keys = ['action_out',
-                                            'data_out'])
-        # Service
-        # self.order_req_srv = ''
+                                         'listen_failure',
+                                         'next_cmd',
+                                         'all_cmd_finish'],
+                             output_keys = ['cmd_out'])
+        # ServiceProxy
+        self.listen_srv = rospy.ServiceProxy('/gpsr/actionplan', ActionPlan)
         # Value
         self.listen_count = 1
+        self.cmd_count = 1
 
     def execute(self, userdata):
-        rospy.loginfo('Executing state: LISTEN_ORDER')
-        if self.listen_count <= 3:
-            # print self.listen_count
-            result = False
-            # result = self.order_req_srv()
-            # if result.result:
-            if result:
-                # userdata.action_out = result.action
-                # userdata.data_out = result.data
-                userdata.action_out = ['go', 'grasp']
-                userdata.data_out = ['shelf', 'cup']
+        rospy.loginfo('Executing state: LISTEN_COMMAND')
+        if self.cmd_count == 4:
+            speak('Finish all command')
+            return 'all_cmd_finish'
+        elif self.listen_count <= 3:
+            speak('CommandNumber is ' + str(self.cmd_count))
+            speak('ListenCount is ' + str(self.listen_count))
+            speak('Please instruct me')
+            result = self.listen_srv()
+            if result.result:
                 self.listen_count = 1
+                self.cmd_count += 1
+                userdata.cmd_out = result
                 return 'listen_success'
             else:
-                # speak('Listening failed')
                 self.listen_count += 1
-                print self.listen_count
-                return 'listen_failed'
+                speak("Sorry, I could't listen")
+                return 'listen_failure'
         else:
+            speak("I couldn't understand the instruction")
             self.listen_count = 1
-            return 'all_finish'
-
-
-class OrderCount(smach.State):
-    def __init__(self):
-        smach.State.__init__(self,
-                             outcomes = ['not_complete',
-                                         'all_complete'])
-        self.order_count = 0
-
-    def execute(self, userdata):
-        rospy.loginfo('Executing state: ORDER_COUNT')
-        if self.order_count < 3:
-            self.order_count += 1
-            rospy.loginfo('Order num: ' + str(self.order_count))
-            return 'not_complete'
-        else:
-            rospy.loginfo('All order completed!')
-            return 'all_complete'
+            self.cmd_count +=1
+            return 'next_cmd'
 
 
 class ExeAction(smach.State):
     def __init__(self):
         smach.State.__init__(self,
                              outcomes = ['action_success',
-                                         'action_failed'],
-                             input_keys = ['action_in',
-                                           'data_in'])
+                                         'action_failure'],
+                             input_keys = ['cmd_in'])
 
     def execute(self, userdata):
         rospy.loginfo('Executing state: EXE_ACTION')
-        a_list = userdata.action_in
-        d_list = userdata.data_in
-        # result = exeActionPlanAC(a_list, d_list)
+        action = userdata.cmd_in.action
+        data = userdata.cmd_in.data
+        print data
+        print action
+        # result = exeActionPlan(action, data)
         result = True
         # if result.result:
         if result:
+            speak('Action success')
             return 'action_success'
         else:
-            return 'action_failed'
+            speak('Action failed')
+            return 'action_failure'
 
 
 class Exit(smach.State):
@@ -118,38 +106,25 @@ def main():
 
     with sm_top:
         smach.StateMachine.add(
-                'ORDER_COUNT',
-                OrderCount(),
-                transitions = {'not_complete':'LISTEN_ORDER',
-                               'all_complete':'EXIT'})
-
-        smach.StateMachine.add(
-                'LISTEN_ORDER',
-                ListenOrder(),
+                'LISTEN_COMMAND',
+                ListenCommand(),
                 transitions = {'listen_success':'EXE_ACTION',
-                               'listen_failed':'LISTEN_ORDER',
-                               'all_finish':'ORDER_COUNT'},
-                remapping = {'action_out':'action_list',
-                             'data_out':'data_list'})
-
-        # smach.StateMachine.add(
-        #         'ORDER_COUNT',
-        #         OrderCount(),
-        #         transitions = {'not_complete':'LISTEN_ORDER',
-        #                        'all_complete':'EXIT'})
+                               'listen_failure':'LISTEN_COMMAND',
+                               'next_cmd':'DECIDE_MOVE',
+                               'all_cmd_finish':'EXIT'},
+                remapping = {'cmd_out':'cmd'})
 
         smach.StateMachine.add(
                 'EXE_ACTION',
                 ExeAction(),
-                transitions = {'action_success':'ORDER_COUNT',
-                               'action_failed':'ORDER_COUNT'},
-                remapping = {'action_in':'action_list',
-                             'data_in':'data_list'})
+                transitions = {'action_success':'DECIDE_MOVE',
+                               'action_failure':'DECIDE_MOVE'},
+                remapping = {'cmd_in':'cmd'})
 
         smach.StateMachine.add(
                 'EXIT',
                 Exit(),
-                transitions = {'finish_exit':'finish_sm_top'})
+                transitions = {'exit_finish':'finish_sm_top'})
 
     outcomes = sm_top.execute()
 
