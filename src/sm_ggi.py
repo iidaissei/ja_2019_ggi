@@ -61,7 +61,7 @@ class ListenCmd(smach.State):
                 key = self.cmd_dict[command]
                 return key
             elif command == 'finish_training':
-                return 'finish_training'
+                return 'finish'
             else:
                 rospy.loginfo(str(command) + ' is not found')
                 return 'listen_cmd_failed'
@@ -194,32 +194,32 @@ def main():
                 outcomes = ['finish_training'])
         with sm_training:
             smach.StateMachine.add(
-                    'LISTEN_COMMAND',
+                    'LISTEN_CMD',
                     ListenCmd(),
                     transitions = {'follow':'FOLLOW',
                                    'move':'MOVE',
                                    'learn':'LEARN',
                                    'finish':'finish_training',
-                                   'listen_cmd_failed':'LISTEN_COMMAND'},
+                                   'listen_cmd_failed':'LISTEN_CMD'},
                     remapping = {'li_command_output':'command_name',
                                  'learn_data_input':'learn_data'})
 
             smach.StateMachine.add(
                     'FOLLOW',
                     Follow(),
-                    transitions = {'finish_follow':'LISTEN_COMMAND'},
+                    transitions = {'finish_follow':'LISTEN_CMD'},
                     remapping = {'f_command_input':'command_name'})
 
             smach.StateMachine.add(
                     'MOVE',
                     Move(),
-                    transitions = {'finish_move':'LISTEN_COMMAND'},
+                    transitions = {'finish_move':'LISTEN_CMD'},
                     remapping = {'m_command_input':'command_name'})
 
             smach.StateMachine.add(
                     'LEARN',
                     Learn(),
-                    transitions = {'finish_learn':'LISTEN_COMMAND'},
+                    transitions = {'finish_learn':'LISTEN_CMD'},
                     remapping = {'le_command_input':'command_name',
                                   'learn_data_output':'learn_data'})
 
